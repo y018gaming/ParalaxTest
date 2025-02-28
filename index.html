@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Forest Window Proxy</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Arial', sans-serif;
+        }
+
+        body {
+            overflow-x: hidden;
+            background-color: #333;
+        }
+
+        .container {
+            width: 100%;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .parallax-container {
+            position: fixed;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            z-index: -1;
+        }
+
+        .window-frame {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background-color: #4b3621;
+            border: 20px solid #5d4037;
+            box-shadow: inset 0 0 50px rgba(0, 0, 0, 0.5);
+            z-index: 2;
+        }
+
+        .forest-bg {
+            position: absolute;
+            width: 110%;
+            height: 110%;
+            background-image: url('https://source.unsplash.com/random/1920x1080/?forest,dark');
+            background-size: cover;
+            background-position: center;
+            transform: translateZ(-10px) scale(2);
+            z-index: 1;
+            filter: brightness(0.8);
+        }
+
+        .rain {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            z-index: 3;
+            opacity: 0.7;
+        }
+
+        .raindrop {
+            position: absolute;
+            width: 2px;
+            height: 10px;
+            background: linear-gradient(to bottom, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.7));
+            border-radius: 5px;
+        }
+
+        .proxy-content {
+            width: 90%;
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 20px;
+            background-color: rgba(0, 0, 0, 0.6);
+            border-radius: 10px;
+            backdrop-filter: blur(5px);
+            z-index: 4;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .proxy-header {
+            margin-bottom: 20px;
+            text-align: center;
+            color: #fff;
+        }
+
+        .proxy-header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+        }
+
+        .url-input {
+            width: 100%;
+            display: flex;
+            margin-bottom: 20px;
+        }
+
+        .url-input input {
+            flex: 1;
+            padding: 12px 15px;
+            font-size: 1rem;
+            border: none;
+            border-radius: 5px 0 0 5px;
+            background-color: rgba(255, 255, 255, 0.9);
+        }
+
+        .url-input button {
+            padding: 12px 20px;
+            font-size: 1rem;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 0 5px 5px 0;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .url-input button:hover {
+            background-color: #45a049;
+        }
+
+        .browser-frame {
+            flex: 1;
+            width: 100%;
+            border: none;
+            border-radius: 5px;
+            background-color: #fff;
+            min-height: 400px;
+        }
+
+        .loading-spinner {
+            display: none;
+            margin: 20px auto;
+            width: 50px;
+            height: 50px;
+            border: 5px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top: 5px solid #4CAF50;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        @media (max-width: 768px) {
+            .proxy-header h1 {
+                font-size: 1.8rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="parallax-container">
+            <div class="window-frame"></div>
+            <div class="forest-bg" id="forest"></div>
+            <div class="rain" id="rain"></div>
+        </div>
+
+        <div class="proxy-content">
+            <div class="proxy-header">
+                <h1>Forest Window Proxy</h1>
+                <p>Enter a URL to browse through the proxy</p>
+            </div>
+            <div class="url-input">
+                <input type="text" id="url-input" placeholder="https://example.com" value="https://example.com">
+                <button id="load-btn">Browse</button>
+            </div>
+            <div class="loading-spinner" id="loading"></div>
+            <iframe id="browser-frame" class="browser-frame" sandbox="allow-forms allow-scripts allow-same-origin" src="about:blank"></iframe>
+        </div>
+    </div>
+
+    <script>
+        // Create rain effect
+        const rainContainer = document.getElementById('rain');
+        const createRain = () => {
+            rainContainer.innerHTML = '';
+            const raindropsCount = 200;
+            
+            for (let i = 0; i < raindropsCount; i++) {
+                const raindrop = document.createElement('div');
+                raindrop.classList.add('raindrop');
+                
+                // Random position
+                const left = Math.random() * 100;
+                const top = Math.random() * 100;
+                const delay = Math.random() * 5;
+                const duration = Math.random() * 0.5 + 0.5;
+                
+                raindrop.style.left = `${left}%`;
+                raindrop.style.top = `${top}%`;
+                raindrop.style.opacity = Math.random() * 0.5 + 0.5;
+                raindrop.style.animation = `falling ${duration}s linear ${delay}s infinite`;
+                
+                rainContainer.appendChild(raindrop);
+            }
+        };
+
+        // Add animation for raindrops
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes falling {
+                0% {
+                    transform: translate(0, -50px);
+                }
+                100% {
+                    transform: translate(0, 100vh);
+                }
+            }
+        `;
+        document.head.appendChild(style);
+        
+        // Parallax effect
+        const forestBg = document.getElementById('forest');
+        window.addEventListener('mousemove', (e) => {
+            const x = e.clientX / window.innerWidth;
+            const y = e.clientY / window.innerHeight;
+            
+            forestBg.style.transform = `translate(${-x * 20}px, ${-y * 20}px) scale(1.2)`;
+        });
+
+        // Proxy functionality
+        const urlInput = document.getElementById('url-input');
+        const loadBtn = document.getElementById('load-btn');
+        const browserFrame = document.getElementById('browser-frame');
+        const loading = document.getElementById('loading');
+
+        // Proxy server URL (Node.js server that will handle the requests)
+        const PROXY_SERVER = '/proxy';
+        
+        loadBtn.addEventListener('click', loadUrl);
+        urlInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                loadUrl();
+            }
+        });
+
+        function loadUrl() {
+            let url = urlInput.value.trim();
+            
+            // Add https:// if not present
+            if (!url.startsWith('http://') && !url.startsWith('https://')) {
+                url = 'https://' + url;
+                urlInput.value = url;
+            }
+            
+            loading.style.display = 'block';
+            browserFrame.style.opacity = 0.5;
+            
+            // Setup the proxy server URL
+            const proxyUrl = `${PROXY_SERVER}?url=${encodeURIComponent(url)}`;
+            
+            // For demonstration in GitHub Codespaces, we'll use a CORS proxy
+            // In a real implementation, you'd use your own proxy server
+            const corsProxyUrl = `https://cors-anywhere.herokuapp.com/${url}`;
+            
+            // Directly loading in iframe for demo purposes
+            // In production, you would use the proxy server approach
+            browserFrame.onload = () => {
+                loading.style.display = 'none';
+                browserFrame.style.opacity = 1;
+            };
+            
+            browserFrame.src = url;
+        }
+
+        // Initialize the rain
+        createRain();
+        
+        // Load default page on start
+        window.onload = loadUrl;
+    </script>
+
+    <!-- Server-side component (Node.js Express) -->
+    <!-- Create a file named proxy-server.js with the following content -->
+    <!--
+    const express = require('express');
+    const axios = require('axios');
+    const app = express();
+    const PORT = process.env.PORT || 3000;
+
+    // Serve the static HTML file
+    app.use(express.static('public'));
+
+    // Proxy endpoint
+    app.get('/proxy', async (req, res) => {
+        const url = req.query.url;
+        
+        if (!url) {
+            return res.status(400).send('URL parameter is required');
+        }
+        
+        try {
+            const response = await axios.get(url, {
+                responseType: 'arraybuffer',
+                headers: {
+                    'User-Agent': req.headers['user-agent']
+                }
+            });
+            
+            // Set the Content-Type header to match the proxied response
+            Object.keys(response.headers).forEach(key => {
+                res.setHeader(key, response.headers[key]);
+            });
+            
+            return res.send(response.data);
+        } catch (error) {
+            console.error('Proxy error:', error.message);
+            return res.status(500).send(`Error proxying request: ${error.message}`);
+        }
+    });
+
+    app.listen(PORT, () => {
+        console.log(`Proxy server running on port ${PORT}`);
+    });
+    -->
+</body>
+</html>
